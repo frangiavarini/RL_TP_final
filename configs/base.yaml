@@ -1,0 +1,30 @@
+# Configuración común a los 4 agentes (mismos hiperparámetros y presupuesto).
+total_timesteps: 5_000_000
+n_envs: 16
+checkpoint_every: 500_000   # pasos totales
+
+env:
+  num_rows: 3
+  num_cols: 3
+  max_steps: 300
+  n_bits: 1
+  obs_marks_vector: true
+  shaping: goal          # none | goal | expl
+  shaping_coef: 1.0
+
+ppo:
+  learning_rate: 2.5e-4
+  n_steps: 256           # por env -> 4096 transiciones por update
+  batch_size: 1024
+  n_epochs: 4
+  gamma: 0.99            # también se usa como gamma del shaping
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+# Solo A1 (RecurrentPPO). batch_size se interpreta en transiciones.
+recurrent:
+  lstm_hidden_size: 256
+  n_lstm_layers: 1
