@@ -133,6 +133,8 @@ def main():
     ap.add_argument("--out", default="runs")
     ap.add_argument("--name", default=None)
     ap.add_argument("--device", default="auto")
+    ap.add_argument("--resume-finished", action="store_true",
+                    help="reentrenar aunque ya exista model.zip")
     args = ap.parse_args()
 
     cfg = apply_overrides(yaml.safe_load(open(args.config)), args.set)
@@ -155,15 +157,32 @@ def main():
                   tensorboard_log=str(run_dir / "tb"), **ppo_kw)
     if agent["recurrent"]:
         from sb3_contrib import RecurrentPPO
-        model = RecurrentPPO("MultiInputLstmPolicy", policy_kwargs=dict(cfg["recurrent"]), **common)
+        Algo, policy, extra = RecurrentPPO, "MultiInputLstmPolicy", dict(policy_kwargs=dict(cfg["recurrent"]))
     else:
-        model = PPO("MultiInputPolicy", **common)
+        Algo, policy, extra = PPO, "MultiInputPolicy", {}
+
+    # Reanudar desde el último checkpoint (p. ej. si una VM spot se apagó).
+    ckpts = sorted((run_dir / "checkpoints").glob("model_*_steps.zip"),
+                   key=lambda p: int(p.stem.split("_")[1]))
+    if (run_dir / "model.zip").exists() and not args.resume_finished:
+        print(f"Ya terminado: {run_dir}/model.zip (usar --resume-finished para reentrenar)")
+        venv.close()
+        return
+    if ckpts:
+        print(f"Reanudando desde {ckpts[-1]}")
+        model = Algo.load(ckpts[-1], env=venv, device=args.device,
+                          tensorboard_log=str(run_dir / "tb"))
+        remaining = cfg["total_timesteps"] - model.num_timesteps
+        reset = False
+    else:
+        model = Algo(policy, **extra, **common)
+        remaining, reset = cfg["total_timesteps"], True
 
     ckpt = CheckpointCallback(save_freq=max(cfg["checkpoint_every"] // cfg["n_envs"], 1),
                               save_path=str(run_dir / "checkpoints"), name_prefix="model")
     t0 = time.time()
-    model.learn(cfg["total_timesteps"], callback=CallbackList([EpisodeMetricsCallback(), ckpt]),
-                tb_log_name="run")
+    model.learn(max(remaining, 0), callback=CallbackList([EpisodeMetricsCallback(), ckpt]),
+                tb_log_name="run", reset_num_timesteps=reset)
     model.save(run_dir / "model.zip")
     dt = time.time() - t0
     json.dump(dict(seconds=dt, fps=cfg["total_timesteps"] / dt),
