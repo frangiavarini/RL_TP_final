@@ -6,6 +6,7 @@ SEEDS=${SEEDS:-"0 1 2"}
 PARALLEL=${PARALLEL:-4}
 AGENTS=${AGENTS:-"A0 A1 A2 A3"}
 export PYTHONPATH=.
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}  # que las corridas en paralelo no se peleen por los cores
 PY=(python)
 # MiniWorld necesita un contexto OpenGL: en Linux sin pantalla usamos xvfb.
 if [[ "$(uname)" == "Linux" && -z "${DISPLAY:-}" ]]; then

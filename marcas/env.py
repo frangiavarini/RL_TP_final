@@ -213,6 +213,11 @@ class MarkedMaze(Maze):
         return o
 
     # ------------------------------------------------------------------ render
+    def render_obs(self, frame_buffer=None):
+        if getattr(self, "_skip_render", False):
+            return None
+        return super().render_obs(frame_buffer)
+
     def _render_world(self, frame_buffer, render_agent):
         vis = self._visible_marks() if hasattr(self, "marks") else None
         if vis is not None and vis.any():
@@ -277,7 +282,14 @@ class MarkedMaze(Maze):
             self.marks[cell_before] = value
             self.n_writes += 1
 
-        img, reward, terminated, truncated, info = super().step(move)
+        # MiniWorld renderiza dentro de step(); lo salteamos y renderizamos una
+        # sola vez al final, con las marcas ya actualizadas (antes A2/A3 hacían
+        # dos renders por paso).
+        self._skip_render = True
+        try:
+            _, reward, terminated, truncated, info = super().step(move)
+        finally:
+            self._skip_render = False
         cell = self.pos_to_cell(self.agent.pos)
 
         entered = cell != cell_before
@@ -290,9 +302,7 @@ class MarkedMaze(Maze):
             self.trajectory.append(cell)
         if self.mark_mode == "fixed":
             self.marks[cell] = 1
-            img = self.render_obs()
-        elif self.mark_mode == "learned" and value > 0 and self.mark_view == "normal":
-            img = self.render_obs()  # la marca recién escrita ya se ve
+        img = self.render_obs()  # la marca recién escrita ya se ve
 
         reward_base = float(reward)
         self.return_base += reward_base
