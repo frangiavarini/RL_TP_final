@@ -5,3 +5,4 @@ __pycache__/
 runs/
 logs/
 results.md
+vm_checkpoints/

@@ -67,6 +67,38 @@ Hecho y probado localmente (issues [#2](../../issues/2), [#3](../../issues/3), [
 - **Reproducibilidad.** Cada corrida guarda `run.yaml` con la config completa, los argumentos y el
   commit (con `-dirty` si había cambios sin commitear): sirve para el caso de diagnóstico.
 
+### Resultados: laberinto 3×3 (26/11)
+
+4 agentes × 3 semillas, 2M pasos cada uno, shaping `goal`. Entrenado en una VM spot `c2d-standard-16`
+(sin GPU: la cuota de GPU del proyecto es 0), unas 2 h por corrida (A1, unas 3,5 h). Evaluación en
+100 laberintos no vistos, con acciones muestreadas. Media ± desvío entre semillas. Tabla completa en
+[results/results.md](results/results.md); por corrida (episodios, pasos, mapas) en [results/runs/](results/runs/).
+
+| Agente | Marcas al evaluar | Éxito | Pasos hasta el objetivo | % revisitadas |
+|---|---|---|---|---|
+| A0 sin memoria | — | 98,0 ± 1,4 % | 34,2 ± 1,4 | 10,1 % |
+| A1 LSTM | — | 99,7 ± 0,5 % | 27,0 ± 3,5 | 5,4 % |
+| A2 marca fija | normales | 95,3 ± 0,9 % | 36,2 ± 2,8 | 11,1 % |
+| A2 marca fija | ocultas | 91,3 ± 2,5 % | 40,5 ± 2,7 | 18,8 % |
+| A2 marca fija | aleatorias | 84,3 ± 4,5 % | 38,9 ± 1,7 | 20,7 % |
+| A3 marca aprendida | normales | 95,0 ± 0,8 % | 36,8 ± 2,2 | 12,8 % |
+| A3 marca aprendida | ocultas | 97,0 ± 1,6 % | 42,5 ± 1,4 | 14,3 % |
+| A3 marca aprendida | aleatorias | 71,3 ± 8,7 % | 46,3 ± 2,3 | 19,5 % |
+
+Lectura preliminar:
+- **En 3×3 casi no hace falta memoria**: A0 ya llega en el 98 % de los episodios. La LSTM es la mejor
+  (−21 % de pasos y la mitad de revisitas que A0); las marcas no superan a A0.
+- **A2 depende de sus marcas**: si se ocultan, las revisitas casi se duplican y el éxito baja.
+- **A3 aprende cosas distintas según la semilla**: tasa de escritura de 0,4 %, 41 % y 9 % (semillas 0, 1 y 2).
+  En las tres, ocultar las marcas aumenta los pasos (+7 % a +23 %), pero no baja el éxito. Durante el
+  entrenamiento de la semilla 0, la entropía de la cabeza del bit colapsó a 0,03 → candidato a caso de
+  diagnóstico.
+- Siguiente paso posible: laberintos más grandes (`--set env.num_rows=5 --set env.num_cols=5`), donde
+  explorar sistemáticamente debería importar más.
+
+Los modelos (`model.zip`, ~9 MB c/u) y los logs de TensorBoard no están en git por tamaño: están en
+`vm_checkpoints/final/` de la máquina de Fran y en el disco de la VM `rl-cpu` (apagada).
+
 ### Números de referencia (Mac M-series, CPU)
 
 - Agente aleatorio: ~37 % de éxito en 300 pasos (30 laberintos).
